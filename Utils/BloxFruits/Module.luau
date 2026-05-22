@@ -12,15 +12,6 @@ local ReplicatedStorage: ReplicatedStorage = game:GetService("ReplicatedStorage"
 local TeleportService: TeleportService = game:GetService("TeleportService")
 local RunService: RunService = game:GetService("RunService")
 local Players: Players = game:GetService("Players")
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local lp = Players.LocalPlayer
-
-local Net = require(ReplicatedStorage.Modules.Net)
-local CombatUtil = require(ReplicatedStorage.Modules.CombatUtil)
-
-local hitRemote = Net:RemoteEvent("RegisterHit")
-local attackRemote = ReplicatedStorage.Modules.Net:FindFirstChild("RE/RegisterAttack")
 
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local GunValidator: RemoteEvent = Remotes:WaitForChild("Validator2")
@@ -779,24 +770,59 @@ end
 		return Module.Bosses[Name] and true or false
 	end
 
-	function Module.Rejoin(): (nil)
+	function Module.Rejoin()
 		 local ServerBrowser = ReplicatedStorage.__ServerBrowser 
          task.spawn(ServerBrowser.InvokeServer, ServerBrowser, "teleport", game.JobId)
 	end
 
-   function Module:ServerHop(): (nil)   
-    local ServerBrowser = ReplicatedStorage.__ServerBrowser 
-    for i = 1, 100 do
-      local Servers = ServerBrowser:InvokeServer(i)
-      for id,info in pairs(Servers) do
-        if id ~= game.JobId and info["Count"] < 11 then
-          task.spawn(function()
-    pcall(function()
-        ServerBrowser:InvokeServer("teleport", id)
-    end)
-end)
+   function Module:ServerHop(bO)
+       if not bO then
+        bO = 10
+    end
+    ticklon = tick()
+    repeat
+        task.wait()
+    until tick() - ticklon >= 1
+    local function Hop()
+        for r = 1, math.huge do
+            local bP = game:GetService("ReplicatedStorage").__ServerBrowser:InvokeServer(r)
+            for k, v in pairs(bP) do
+                if k ~= game.JobId and v["Count"] < bO then
+                   game:GetService("ReplicatedStorage").__ServerBrowser:InvokeServer("teleport", k)
+                end
+            end
         end
-      end
+        return false
+    end
+    if not getgenv().Loaded then
+        local function bQ(v)
+            if v.Name == "ErrorPrompt" then
+                if v.Visible then
+                    if v.TitleFrame.ErrorTitle.Text == "Teleport Failed" then
+                        HopServer()
+                        v.Visible = false
+                    end
+                end
+                v:GetPropertyChangedSignal("Visible"):Connect(
+                    function()
+                        if v.Visible then
+                            if v.TitleFrame.ErrorTitle.Text == "Teleport Failed" then
+                                HopServer()
+                                v.Visible = false
+                            end
+                        end
+                    end
+                )
+            end
+        end
+        for k, v in pairs(game.CoreGui.RobloxPromptGui.promptOverlay:GetChildren()) do
+            bQ(v)
+        end
+        game.CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(bQ)
+        getgenv().Loaded = true
+    end
+    while not Hop() do
+        wait()
     end
   end
 	
@@ -1060,14 +1086,13 @@ end)
 		end
 	})
 
-	Module.Enemies = (function()
+Module.Enemies = (function()
 		local EnemiesModule = CreateDictionary({
-			"__CakePrince", "__PirateRaid", "__RaidBoss", "__TyrantSkies", "__Bones", "__Elite", "__Others", 
+			"__CakePrince", "__RaidBoss", "__TyrantSkies", "__Bones", "__Elite", "__Others", 
 		}, {})
 		
 		local Signals = Module.Signals
-		local IsAlive = Module.IsAlive
-        local SeaCastle = CFrame.new(-5496.17432, 313.768921, -2841.53027, 0.924894512, 7.37058015e-09, 0.380223751, 3.5881019e-08, 1, -1.06665446e-07, -0.380223751, 1.12297109e-07, 0.924894512)
+        local IsAlive = Module.IsAlive
 
 		local TagsMobs = {
 			__Elite = CreateDictionary({ "Deandre", "Diablo", "Urban" }, true),
@@ -1085,8 +1110,8 @@ end)
 			AlignPosition.Parent = Attachment
 			AlignPosition.Attachment0 = Attachment
 		end
-		
-		local function New(list, NewEnemy)
+
+       local function New(list, NewEnemy)
 			if table.find(list, NewEnemy) then return end
 			
 			local Humanoid = NewEnemy:WaitForChild("Humanoid")
@@ -1098,34 +1123,12 @@ end)
 			end
 		end
 		
-		local function IsFromPiratesSea(Enemy)
-    local Humanoid = Enemy:WaitForChild("Humanoid", 3)
-    local Root = Enemy:WaitForChild("HumanoidRootPart", 3)
-
-    if not Humanoid or not Root then return end
-    if Humanoid.Health <= 0 then return end
-
-    if Enemy.Name ~= "rip_indra True Form" and Enemy.Name ~= "Blank Buddy" then
-        if (Root.Position - SeaCastle.Position).Magnitude <= 750 then
-            task.spawn(New, EnemiesModule.__PirateRaid, Enemy)
-            Module.PirateRaid = tick()
-        end
-    end
-end
-		
 		local function NewEnemyAdded(Enemy)
 			local EnemyName = Enemy.Name
 			local Others = EnemiesModule.__Others
 			
 			Others[EnemyName] = Others[EnemyName] or {}
 			task.spawn(New, Others[EnemyName], Enemy)
-			
-			if Module.GameData.Sea == 3 then
-    task.spawn(function()
-            IsFromPiratesSea(Enemy)
-            task.wait(0.2)
-    end)
-end
 			
 			if Enemy:GetAttribute("RaidBoss") then
 				task.spawn(New, EnemiesModule.__RaidBoss, Enemy)
@@ -1255,8 +1258,8 @@ end
 			
 			return NewTag
 		end
-
-    local function Bring(Enemy)
+		
+		local function Bring(Enemy)
       local PlayerRootPart = (Player.Character or Player.CharacterAdded()):WaitForChild("HumanoidRootPart")
       local RootPart = Enemy:WaitForChild("HumanoidRootPart")
       local Humanoid = Enemy:WaitForChild("Humanoid")
@@ -1301,10 +1304,7 @@ end
 		end
 		
 		for _, Enemy in CollectionService:GetTagged("BasicMob") do NewEnemyAdded(Enemy) end
-		for _, Enemy in Enemies:GetChildren() do NewEnemyAdded(Enemy) end
-		
 		table.insert(Connections, CollectionService:GetInstanceAddedSignal("BasicMob"):Connect(NewEnemyAdded))
-		table.insert(Connections, Enemies.ChildAdded:Connect(NewEnemyAdded))
 		
 		table.insert(Connections, CollectionService:GetInstanceAddedSignal(KILLAURA_TAG):Connect(KillAura))
 		table.insert(Connections, CollectionService:GetInstanceAddedSignal(BRING_TAG):Connect(Bring))
@@ -1369,7 +1369,7 @@ end
 
    Module.FastAttack = (function()
 		local FastAttack = {
-			Distance = 75,
+			Distance = 90,
 			attackMobs = true,
 			attackPlayers = true,
 			Equipped = nil,
@@ -1643,30 +1643,6 @@ end
 				end
 			end
 		end
-
-		function FastAttack:SuperFastAttack(EnemyHitBox, BladeHits, Cooldown)
-			if Module.SuperFastAttack and Settings.FastAttack then
-				local Enemy = EnemyHitBox.Parent
-				local Times = if Enemy:GetAttribute("IsBoss") then 25 elseif Enemy:GetAttribute("RaidBoss") then 40 else 6
-				
-				self.Debounce = tick() + 9e9;
-				local Overheat = 0;
-				
-				table.insert(BladeHits, { EnemyHitBox.Parent, EnemyHitBox })
-				table.insert(BladeHits, math.random())
-				
-				while Overheat <= 0.4 do
-					for i = 1, Times do
-						RE_RegisterAttack:FireServer(self:GetCombo())
-						HIT_FUNCTION(EnemyHitBox, BladeHits)
-					end
-					Overheat += task.wait(if Times > 10 then 0.07 else 0)
-				end
-				
-				self.Debounce = 0;
-				return true;
-			end
-		end
 		
 		function FastAttack:UseNormalClick(Cooldown: number): (nil)
 			self:UpdateBladeHits()
@@ -1675,10 +1651,8 @@ end
 				local PrimaryRootPart = table.remove(CurrentBladeHits)[2]
 				
 				if SUCCESS_FLAGS and COMBAT_REMOTE_THREAD and HIT_FUNCTION then
-					if not self:SuperFastAttack(PrimaryRootPart, CurrentBladeHits, Cooldown) then
-						RE_RegisterAttack:FireServer(Cooldown)
-						HIT_FUNCTION(PrimaryRootPart, CurrentBladeHits)
-					end
+					RE_RegisterAttack:FireServer(Cooldown)
+					HIT_FUNCTION(PrimaryRootPart, CurrentBladeHits)
 				elseif SUCCESS_FLAGS and not COMBAT_REMOTE_THREAD then
 					RE_RegisterAttack:FireServer(Cooldown)
 					RE_RegisterHit:FireServer(PrimaryRootPart, CurrentBladeHits)
@@ -1768,7 +1742,7 @@ function FastAttack:HandleNormal(Equipped)
 		RE_ShootGunEvent:FireServer(Position, CurrentBladeHits)
 	end
 end
- 
+
 function FastAttack:HandlePositionOrTap(Equipped)
 	local Target = self:GetClosestEnemy(100)
 	if not IsValidTarget(Target) then return end
@@ -1979,7 +1953,6 @@ end
 		return BodyVelocity
 	end)()
 
-  if identifyexecutor() == "Delta" then
 	Module.Hooking = (function()
 		local Hooking = {
 			Skills = CreateDictionary({ "Z", "X", "C", "V", "F" }, true),
@@ -2009,7 +1982,8 @@ end
 				end
 			end
 		end
-		
+
+		if identifyexecutor() == "Delta" then
 		function Hooking.UpdateClosests()
 			local SmoothDebounce = Settings.SmoothMode and 0.5 or 0.25
 			
@@ -2127,10 +2101,10 @@ end
 		end)
 		
 		table.insert(Connections, Heartbeat:Connect(Hooking.UpdateClosests))
+     end
 		
 		return Hooking
 	end)()
-  end
 
   task.defer(function()
 	 	local DeathEffect = require(WaitChilds(ReplicatedStorage, "Effect", "Container", "Death"))
@@ -2183,117 +2157,6 @@ function EnableBuso()
 		end
 	end
 end
-
-local function getChar()
-	return lp.Character
-end
-
-local function getMobs(range)
-	local char = getChar()
-	if not char or not char:FindFirstChild("HumanoidRootPart") then return {} end
-
-	local root = char.HumanoidRootPart
-	local mobs = {}
-
-	for _, mob in ipairs(workspace.Enemies:GetChildren()) do
-		local hrp = mob:FindFirstChild("HumanoidRootPart")
-		local hum = mob:FindFirstChild("Humanoid")
-
-		if hrp and hum and hum.Health > 0 then
-			if (hrp.Position - root.Position).Magnitude <= (range or 60) then
-				table.insert(mobs, mob)
-			end
-		end
-	end
-
-	for _, plr in ipairs(workspace.Characters:GetChildren()) do
-		local hrp = plr:FindFirstChild("HumanoidRootPart")
-		local hum = plr:FindFirstChild("Humanoid")
-
-		if plr ~= getChar() and hrp and hum and hum.Health > 0 then
-			if (hrp.Position - root.Position).Magnitude <= (range or 60) then
-				table.insert(mobs, plr)
-			end
-		end
-	end
-
-	return mobs
-end
-
-local function superFastAttack(enemyHitBox, bladeHits)
-	local enemy = enemyHitBox.Parent
-	if not enemy then return end
-	if not Settings.SuperClique then return end
-
-	local times = enemy:GetAttribute("IsBoss") and 25
-		or enemy:GetAttribute("RaidBoss") and 40
-		or 6
-
-	local overheat = 0
-
-	table.insert(bladeHits, {enemy, enemyHitBox})
-	table.insert(bladeHits, math.random())
-
-	while overheat <= 0.4 and Settings.SuperClique do
-		for i = 1, times do
-			if not Settings.SuperClique then return end
-
-			if attackRemote then
-				attackRemote:FireServer()
-			end
-
-			hitRemote:FireServer(enemyHitBox, bladeHits, nil, nil)
-		end
-
-		overheat += task.wait(times > 10 and 0.07 or 0)
-	end
-end
-
-local function attackTarget(target)
-	local char = getChar()
-	if not char then return end
-
-	local hrp = target:FindFirstChild("HumanoidRootPart")
-	local hum = target:FindFirstChild("Humanoid")
-
-	if not hrp or not hum or hum.Health <= 0 then return end
-
-	local tool = char:FindFirstChildOfClass("Tool")
-	if not tool then return end
-
-	pcall(function()
-		local weaponName = CombatUtil:GetWeaponName(tool)
-		local uuid = tostring(lp.UserId):sub(2,4)..tostring(math.random(10000,99999))
-		local hitData = {{target, hrp}}
-
-		if attackRemote then
-			attackRemote:FireServer()
-		end
-
-		hitRemote:FireServer(hrp, hitData, nil, nil, uuid)
-		CombatUtil:ApplyDamageHighlight(target, char, weaponName, hrp, nil)
-	end)
-end
-
-task.spawn(function()
-	while task.wait() do
-		if Settings.SuperClique then
-			local mobs = getMobs(60)
-
-			for _, mob in ipairs(mobs) do
-				if not Settings.SuperClique then break end
-
-				local hrp = mob:FindFirstChild("HumanoidRootPart")
-
-				if hrp then
-					superFastAttack(hrp, {})
-				else
-					attackTarget(mob)
-				end
-			end
-		end
-	end
-end)
 
 function GetToolByName(Name)
 	local Cached = Module.Cached.Tools[Name]
