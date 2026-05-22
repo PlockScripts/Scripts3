@@ -27,7 +27,7 @@ local function DisconnectConnections()
 	for _, v in pairs(CharacterConnections) do
 		v:Disconnect()
 	end
-	
+
 	table.clear(CharacterConnections)
 end
 
@@ -39,7 +39,7 @@ end
 
 local function RemoveNoClipPart(obj)
 	local index = table.find(NoClipParts, obj)
-	
+
 	if index then
 		table.remove(NoClipParts, index)
 	end
@@ -65,7 +65,7 @@ Player.CharacterAdded:Connect(SetupCharacter)
 
 RunService.Stepped:Connect(function()
 	local Character = Player.Character
-	
+
 	if not Character then
 		return
 	end
@@ -77,14 +77,14 @@ RunService.Stepped:Connect(function()
 		if BodyVelocity.Parent then
 			BodyVelocity.Parent = nil
 		end
-		
+
 		return
 	end
 
 	if Settings.NoClip then
 		for i = 1, #NoClipParts do
 			local part = NoClipParts[i]
-			
+
 			if part and part.Parent then
 				part.CanCollide = false
 			end
@@ -92,10 +92,11 @@ RunService.Stepped:Connect(function()
 	end
 
 	if BodyVelocity.Parent ~= RootPart then
-	pcall(function()
-		BodyVelocity.Parent = RootPart
-	end)
-end
+		pcall(function()
+			BodyVelocity.Parent = RootPart
+		end)
+	end
+end)
 
 function TweenModule:StopTween(Object)
 	local Tween = ActiveTweens[Object]
