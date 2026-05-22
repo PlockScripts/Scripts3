@@ -92,9 +92,10 @@ RunService.Stepped:Connect(function()
 	end
 
 	if BodyVelocity.Parent ~= RootPart then
+	pcall(function()
 		BodyVelocity.Parent = RootPart
-	end
-end)
+	end)
+end
 
 function TweenModule:StopTween(Object)
 	local Tween = ActiveTweens[Object]
