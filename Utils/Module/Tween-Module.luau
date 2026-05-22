@@ -57,24 +57,6 @@ end
 
 Player.CharacterAdded:Connect(SetupCharacter)
 
-RunService.Stepped:Connect(function()
-	local Character = Player.Character
-
-	if not Character then
-		return
-	end
-
-	if Settings.NoClip then
-		for i = 1, #NoClipParts do
-			local part = NoClipParts[i]
-
-			if part and part.Parent then
-				part.CanCollide = false
-			end
-		end
-	end
-end)
-
 function TweenModule:GetHover(RootPart)
 	local BV = RootPart:FindFirstChild("KAHover")
 
@@ -89,6 +71,42 @@ function TweenModule:GetHover(RootPart)
 
 	return BV
 end
+
+RunService.Stepped:Connect(function()
+	local Character = Player.Character
+
+	if not Character then
+		return
+	end
+
+	local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+	local RootPart = Character:FindFirstChild("HumanoidRootPart")
+
+	if not Humanoid or not RootPart then
+		return
+	end
+
+	if Settings.NoClip then
+		for _, part in pairs(Character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
+			end
+		end
+	end
+
+	if TweenModule:IsTweening(RootPart) then
+		Humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+
+		local Hover = TweenModule:GetHover(RootPart)
+		Hover.Velocity = Vector3.zero
+	else
+		local Hover = RootPart:FindFirstChild("KAHover")
+
+		if Hover then
+			Hover:Destroy()
+		end
+	end
+end)
 
 function TweenModule:StopTween(Object)
 	local Tween = ActiveTweens[Object]
@@ -107,7 +125,6 @@ function TweenModule:Stop()
 		return
 	end
 
-	local Humanoid = Character:FindFirstChildOfClass("Humanoid")
 	local RootPart = Character:FindFirstChild("HumanoidRootPart")
 
 	if RootPart then
@@ -118,10 +135,6 @@ function TweenModule:Stop()
 		if Hover then
 			Hover:Destroy()
 		end
-	end
-
-	if Humanoid then
-		Humanoid.PlatformStand = false
 	end
 end
 
@@ -145,7 +158,6 @@ function TweenModule:Create(Object, Time, Property, Value)
 			local Character = Player.Character
 
 			if Character then
-				local Humanoid = Character:FindFirstChildOfClass("Humanoid")
 				local RootPart = Character:FindFirstChild("HumanoidRootPart")
 
 				if RootPart then
@@ -154,10 +166,6 @@ function TweenModule:Create(Object, Time, Property, Value)
 					if Hover then
 						Hover:Destroy()
 					end
-				end
-
-				if Humanoid then
-					Humanoid.PlatformStand = false
 				end
 			end
 		end
@@ -189,8 +197,6 @@ function TweenModule:Teleport(TargetCFrame)
 
 	self:StopTween(RootPart)
 
-	Humanoid.PlatformStand = true
-
 	local Hover = self:GetHover(RootPart)
 	Hover.Velocity = Vector3.zero
 
@@ -198,7 +204,6 @@ function TweenModule:Teleport(TargetCFrame)
 
 	if Distance <= Settings.TweenSpeed then
 		RootPart.CFrame = TargetCFrame
-		Humanoid.PlatformStand = false
 		return true
 	end
 
