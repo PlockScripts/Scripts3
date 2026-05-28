@@ -1369,7 +1369,7 @@ Module.Enemies = (function()
 
    Module.FastAttack = (function()
 		local FastAttack = {
-			Distance = 90,
+			Distance = 55,
 			attackMobs = true,
 			attackPlayers = true,
 			Equipped = nil,
@@ -2157,6 +2157,55 @@ function EnableBuso()
 		end
 	end
 end
+
+function ChestBypass()
+	local Character = LocalPlayer.Character
+	local IsAlive = Module.IsAlive(Character)
+
+	if Settings.ChestBypass and IsAlive then
+		local startTick = tick()
+
+		while Settings.ChestBypass and (tick() - startTick) < 4 do
+			Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+			local CharPos = Character:GetPivot().Position
+			local Chests = CollectionService:GetTagged("_ChestTagged")
+
+			local Closest, Distance = nil, math.huge
+
+			for i = 1, #Chests do
+				local Chest = Chests[i]
+
+				if not Chest:GetAttribute("IsDisabled") then
+					local Magnitude = (Chest:GetPivot().Position - CharPos).Magnitude
+
+					if Magnitude < Distance then
+						Distance = Magnitude
+						Closest = Chest
+					end
+				end
+			end
+
+			if Closest then
+				Character:PivotTo(CFrame.new(Closest:GetPivot().Position))
+				task.wait(0.2)
+			else
+				break
+			end
+		end
+
+		if Settings.ChestBypass and LocalPlayer.Character then
+			LocalPlayer.Character:BreakJoints()
+			LocalPlayer.CharacterAdded:Wait()
+		end
+	end
+end
+
+task.spawn(function()
+	while task.wait() do
+		pcall(ChestBypass)
+	end
+end)
 
 function GetToolByName(Name)
 	local Cached = Module.Cached.Tools[Name]
