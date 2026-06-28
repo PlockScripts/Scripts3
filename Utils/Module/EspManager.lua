@@ -578,21 +578,25 @@ end)
 
 local MyBoatESP = Managers.EspManager.new("MyBoatESP")
 
-MyBoatESP:GetInstance(function()
-    local Character = vu14.Character
+local function IsMyBoat(Boat)
+    local Owner = Boat:FindFirstChild("Owner")
+    if Owner then
+        return Owner.Value.Name == Player.Name
+    end
+    return false
+end
 
+MyBoatESP:GetInstance(function()
+    local Character = Player.Character
     if Character and Character:FindFirstChild("Humanoid") then
         local SeatPart = Character.Humanoid.SeatPart
-
         if SeatPart and SeatPart.Name == "VehicleSeat" then
             return SeatPart.Parent
         end
     end
-
+    
     for _, Boat in ipairs(vu23:GetChildren()) do
-        local Owner = Boat:FindFirstChild("Owner")
-
-        if Owner and Owner.Value and Owner.Value.Name == vu14.Name then
+        if IsMyBoat(Boat) then
             return Boat
         end
     end
@@ -605,32 +609,26 @@ MyBoatESP:Validator(function(Boat)
 end)
 
 MyBoatESP:SetEspColor(function()
-    return Color3.fromRGB(160,160,0)
+    return Color3.fromRGB(255, 255, 0)
 end)
 
 MyBoatESP:SetCustomEspDisplay(function(Boat, Distance)
     local Health = Boat:FindFirstChild("Health")
-
-    if not Health then
-        for _, v in ipairs(Boat:GetDescendants()) do
-            if v.Name == "Health" then
-                Health = v
-                break
-            end
-        end
-    end
-
+    
     if Health then
+        local currentHealth = Health.Value or 0
+        local maxHealth = Health:GetAttribute('MaxHealth') or currentHealth
+        
         return string.format(
-            "<font color='rgb(160,160,0)'>My Boat [ %im ]</font>\n<font color='rgb(25,240,25)'>[%i/%i]</font>",
+            "<font color='rgb(255,255,150)'>My Boat</font> <font color='rgb(255,200,0)'>[ %im ]</font>\n<font color='rgb(25,240,25)'>[%i/%i]</font>",
             Distance,
-            math.floor(Health.Value),
-            math.floor(Health:GetAttribute('MaxHealth') or Health.Value)
+            math.floor(currentHealth),
+            math.floor(maxHealth)
         )
     end
-
+    
     return string.format(
-        "<font color='rgb(160,160,0)'>My Boat [ %im ]</font>",
+        "<font color='rgb(255,255,150)'>My Boat</font> <font color='rgb(255,200,0)'>[ %im ]</font>",
         Distance
     )
 end)
