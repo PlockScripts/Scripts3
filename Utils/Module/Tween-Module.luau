@@ -4,8 +4,8 @@ local PhysicsService = game:GetService("PhysicsService")
 
 local Player = Players.LocalPlayer
 
-local TweenModule = {}
-TweenModule.__index = TweenModule
+local PlayerTP = {}
+PlayerTP.__index = PlayerTP
 
 local ActiveTween = false
 
@@ -27,24 +27,22 @@ local function GetCharacter()
 end
 
 local function ToggleNoClip(State)
-	local Character = GetCharacter()
+	local Character = Player.Character
+
+	if not Character then
+		return
+	end
 
 	for _, v in pairs(Character:GetDescendants()) do
 		if v:IsA("BasePart") then
-			if State then
-				pcall(function()
-					PhysicsService:SetPartCollisionGroup(v, COLLISION_GROUP)
-				end)
-			else
-				pcall(function()
-					PhysicsService:SetPartCollisionGroup(v, "Default")
-				end)
-			end
+			pcall(function()
+				PhysicsService:SetPartCollisionGroup(v, State and COLLISION_GROUP or "Default")
+			end)
 		end
 	end
 end
 
-function TweenModule:GetHover(RootPart)
+function PlayerTP:GetHover(RootPart)
 	local BV = RootPart:FindFirstChild("KAHover")
 
 	if not BV then
@@ -59,19 +57,19 @@ function TweenModule:GetHover(RootPart)
 	return BV
 end
 
-function TweenModule:SetSpeed(Speed)
-	Settings.TweenSpeed = Speed
+function PlayerTP:SetSpeed(Speed)
+	Settings.TweenSpeed = tonumber(Speed) or Settings.TweenSpeed
 end
 
-function TweenModule:GetSpeed()
+function PlayerTP:GetSpeed()
 	return Settings.TweenSpeed
 end
 
-function TweenModule:IsTweening()
+function PlayerTP:IsTweening()
 	return ActiveTween
 end
 
-function TweenModule:Stop()
+function PlayerTP:Stop()
 	ActiveTween = false
 
 	local Character = Player.Character
@@ -107,14 +105,14 @@ RunService.Stepped:Connect(function()
 	local Humanoid = Character:FindFirstChildOfClass("Humanoid")
 	local RootPart = Character:FindFirstChild("HumanoidRootPart")
 
-	if not Humanoid or not RootPart then
+	if not Humanoid or not RootPart or Humanoid.Health <= 0 then
+		PlayerTP:Stop()
 		return
 	end
 
 	Humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
 
-	local Hover = TweenModule:GetHover(RootPart)
-
+	local Hover = PlayerTP:GetHover(RootPart)
 	Hover.Velocity = Vector3.zero
 
 	if Settings.NoClip then
@@ -122,11 +120,10 @@ RunService.Stepped:Connect(function()
 	end
 end)
 
-function TweenModule:Teleport(TargetCFrame)
+function PlayerTP:Teleport(TargetCFrame)
 	self:Stop()
 
 	local Character = GetCharacter()
-
 	local Humanoid = Character:FindFirstChildOfClass("Humanoid")
 	local RootPart = Character:FindFirstChild("HumanoidRootPart")
 
@@ -152,11 +149,13 @@ function TweenModule:Teleport(TargetCFrame)
 		while ActiveTween and Magnitude > 5 do
 			local CurrentPos = RootPart.Position
 
-			local Direction = (Vector3.new(
-				TargetCFrame.Position.X,
-				TargetY,
-				TargetCFrame.Position.Z
-			) - CurrentPos).Unit
+			local Direction = (
+				Vector3.new(
+					TargetCFrame.Position.X,
+					TargetY,
+					TargetCFrame.Position.Z
+				) - CurrentPos
+			).Unit
 
 			local MoveStep = Direction * Settings.TweenSpeed * task.wait()
 
@@ -180,4 +179,8 @@ function TweenModule:Teleport(TargetCFrame)
 	return true
 end
 
-return TweenModule
+local function PlayerTPFunction(TargetCFrame)
+	return PlayerTP:Teleport(TargetCFrame)
+end
+
+return PlayerTPFunction
