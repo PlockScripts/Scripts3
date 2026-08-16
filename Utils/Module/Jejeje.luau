@@ -1,170 +1,175 @@
 local Module = {}
-
+local _ENV = (getgenv or getrenv or getfenv)()
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local AutoAttack = true
-local AttackMobs = true
-local AttackPlayers = true
+local Player = Players.LocalPlayer
 
-local v1 = next
-local v2 = {
-    game.ReplicatedStorage.Util,
-    game.ReplicatedStorage.Common,
-    game.ReplicatedStorage.Remotes,
-    game.ReplicatedStorage.Assets,
-    game.ReplicatedStorage.FX
+local redz = redz or {}
+redz.AutoAttack = redz.AutoAttack or false
+
+local Settings = {
+	Distance = 100,
+	ClickDelay = 0
 }
 
-local v3 = nil
-local u4 = nil
-local u5 = nil
-
-function Module.SetAutoAttack(v)
-    AutoAttack = v
+local function IsAlive(Character)
+	local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+	return Humanoid and Humanoid.Health > 0
 end
 
-function Module.SetAttackMobs(v)
-    AttackMobs = v
+local function GetTargets()
+	local Targets = {}
+
+	local Character = Player.Character
+	if not Character then
+		return Targets
+	end
+
+	local RootPart = Character:FindFirstChild("HumanoidRootPart")
+	if not RootPart then
+		return Targets
+	end
+
+	local Enemies = workspace:FindFirstChild("Enemies")
+	if Enemies then
+		for _, Enemy in ipairs(Enemies:GetChildren()) do
+			local Head = Enemy:FindFirstChild("Head")
+			local Humanoid = Enemy:FindFirstChildOfClass("Humanoid")
+
+			if Head and Humanoid and Humanoid.Health > 0 and (Head.Position - RootPart.Position).Magnitude <= Settings.Distance then
+				Targets[#Targets + 1] = {Enemy, Head}
+			end
+		end
+	end
+
+	local Characters = workspace:FindFirstChild("Characters")
+	if Characters then
+		for _, CharacterTarget in ipairs(Characters:GetChildren()) do
+			if CharacterTarget ~= Character then
+				local Head = CharacterTarget:FindFirstChild("Head")
+				local Humanoid = CharacterTarget:FindFirstChildOfClass("Humanoid")
+
+				if Head and Humanoid and Humanoid.Health > 0 and (Head.Position - RootPart.Position).Magnitude <= Settings.Distance then
+					Targets[#Targets + 1] = {CharacterTarget, Head}
+				end
+			end
+		end
+	end
+
+	for _, OtherPlayer in ipairs(Players:GetPlayers()) do
+		if OtherPlayer ~= Player and OtherPlayer.Character then
+			local TargetCharacter = OtherPlayer.Character
+			local Head = TargetCharacter:FindFirstChild("Head")
+			local Humanoid = TargetCharacter:FindFirstChildOfClass("Humanoid")
+
+			if Head and Humanoid and Humanoid.Health > 0 and (Head.Position - RootPart.Position).Magnitude <= Settings.Distance then
+				Targets[#Targets + 1] = {TargetCharacter, Head}
+			end
+		end
+	end
+
+	return Targets
 end
 
-function Module.SetAttackPlayers(v)
-    AttackPlayers = v
+local Modules = ReplicatedStorage:FindFirstChild("Modules")
+local Net = Modules and Modules:FindFirstChild("Net")
+
+local RegisterAttack = Net and Net:FindFirstChild("RE/RegisterAttack")
+local RegisterHit = Net and Net:FindFirstChild("RE/RegisterHit")
+
+local function AttackM1(Targets)
+	if not RegisterAttack or not RegisterHit or #Targets == 0 then
+		return
+	end
+
+	local Character = Player.Character
+	if not Character then
+		return
+	end
+
+	local Tool = Character:FindFirstChildOfClass("Tool")
+	if not Tool or Tool.ToolTip == "Gun" then
+		return
+	end
+
+	pcall(function()
+		Tool:Activate()
+	end)
+
+	local BasePart = Targets[1][2]
+
+	if Tool:FindFirstChild("LeftClickRemote") then
+		for _, Target in ipairs(Targets) do
+			local Enemy = Target[1]
+			local RootPart = Enemy and Enemy:FindFirstChild("HumanoidRootPart")
+
+			if RootPart then
+				local Direction = (RootPart.Position - Character:GetPivot().Position).Unit
+
+				pcall(function()
+					Tool.LeftClickRemote:FireServer(Direction, 1)
+				end)
+			end
+		end
+	else
+		pcall(function()
+			RegisterAttack:FireServer(Settings.ClickDelay)
+			RegisterHit:FireServer(BasePart, Targets)
+		end)
+	end
 end
 
-local function InitRemote()
-    while true do
-        local v6
-        v3, v6 = v1(v2, v3)
-        if v3 == nil then break end
+local function StartAttack()
+	task.spawn(function()
+		while task.wait(Settings.ClickDelay) do
+			if not redz.AutoAttack then
+				continue
+			end
 
-        local v7 = next
-        local v8, v9 = v6:GetChildren()
+			local Character = Player.Character
+			if not IsAlive(Character) then
+				continue
+			end
 
-        while true do
-            local v10
-            v9, v10 = v7(v8, v9)
-            if v9 == nil then break end
+			local Targets = GetTargets()
 
-            if v10:IsA("RemoteEvent") and v10:GetAttribute("Id") then
-                u5 = v10:GetAttribute("Id")
-                u4 = v10
-            end
-        end
-
-        v6.ChildAdded:Connect(function(p11)
-            if p11:IsA("RemoteEvent") and p11:GetAttribute("Id") then
-                u5 = p11:GetAttribute("Id")
-                u4 = p11
-            end
-        end)
-    end
+			if #Targets > 0 then
+				AttackM1(Targets)
+			end
+		end
+	end)
 end
 
-task.spawn(InitRemote)
+function Module.SetAutoAttack(State)
+	redz.AutoAttack = State == true
+end
+
+function Module.GetAutoAttack()
+	return redz.AutoAttack
+end
+
+function Module.SetDistance(Distance)
+	Settings.Distance = tonumber(Distance) or 100
+end
 
 function Module.Start()
-    task.spawn(function()
-        while task.wait(0.05) do 
-            if AutoAttack then
+	if Module.Started then
+		return
+	end
 
-                local Character = LocalPlayer.Character
-                if not Character then continue end
-
-                local HRP = Character:FindFirstChild("HumanoidRootPart")
-                if not HRP then continue end
-
-                local tool = Character:FindFirstChildOfClass("Tool")
-                if not tool then continue end
-
-                local weaponType = tool:GetAttribute("WeaponType")
-                if weaponType ~= "Melee" and weaponType ~= "Sword" then
-                    continue
-                end
-
-                local targets = {}
-
-                if AttackMobs then
-                    local Enemies = workspace:FindFirstChild("Enemies")
-                    if Enemies then
-                        for _,mob in ipairs(Enemies:GetChildren()) do
-                            local hrp = mob:FindFirstChild("HumanoidRootPart")
-                            local hum = mob:FindFirstChild("Humanoid")
-                            if hrp and hum and hum.Health > 0 and (hrp.Position - HRP.Position).Magnitude <= 100 then
-                                local part = mob:FindFirstChild("HumanoidRootPart") or mob:FindFirstChild("Head")
-                                if part then
-                                    targets[#targets+1] = {mob, part}
-                                end
-                            end
-                        end
-                    end
-                end
-
-                if AttackPlayers then
-                    for _,plr in ipairs(Players:GetPlayers()) do
-                        if plr ~= LocalPlayer then
-                            local char = plr.Character
-                            if char then
-                                local hrp = char:FindFirstChild("HumanoidRootPart")
-                                local hum = char:FindFirstChild("Humanoid")
-                                if hrp and hum and hum.Health > 0 and (hrp.Position - HRP.Position).Magnitude <= 100 then
-                                    local part = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head")
-                                    if part then
-                                        targets[#targets+1] = {char, part}
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-
-                pcall(function()
-                    tool:Activate()
-                end)
-
-                if #targets > 0 then
-                    pcall(function()
-
-                        local Net = game.ReplicatedStorage:FindFirstChild("Modules")
-                        Net = Net and Net:FindFirstChild("Net")
-                        if not Net then return end
-
-                        local NetModule = require(Net)
-
-                        NetModule:RemoteEvent("RegisterHit", true)
-
-                        local AttackRemote = Net:FindFirstChild("RE/RegisterAttack")
-                        if AttackRemote then
-                            AttackRemote:FireServer()
-                        end
-
-                        local head = targets[1][1]:FindFirstChild("Head")
-                        if not head then return end
-
-                        local HitRemote = Net:FindFirstChild("RE/RegisterHit")
-                        if HitRemote then
-                            HitRemote:FireServer(
-                                head,
-                                targets,
-                                {},
-                                tostring(LocalPlayer.UserId):sub(2,4)
-                            )
-                        end
-
-                        if u4 then
-                            u4:FireServer(
-                                "RE/RegisterHit",
-                                u5 or 0,
-                                head,
-                                targets
-                            )
-                        end
-
-                    end)
-                end
-            end
-        end
-    end)
+	Module.Started = true
+	StartAttack()
 end
+
+Module.FastAttack = {
+	Attack = AttackM1,
+	GetTargets = GetTargets,
+	SetAutoAttack = Module.SetAutoAttack,
+	GetAutoAttack = Module.GetAutoAttack,
+	SetDistance = Module.SetDistance
+}
+
+_ENV.rz_FastAttack = Module.FastAttack
 
 return Module
