@@ -3,11 +3,13 @@ local RunService = game:GetService("RunService")
 local PhysicsService = game:GetService("PhysicsService")
 
 local Player = Players.LocalPlayer
+local _ENV = (getgenv or getrenv or getfenv)()
 
 local PlayerTP = {}
 PlayerTP.__index = PlayerTP
 
 local ActiveTween = false
+local TweenId = 0
 
 local Settings = {
 	TweenSpeed = 300,
@@ -71,6 +73,7 @@ end
 
 function PlayerTP:Stop()
 	ActiveTween = false
+	TweenId += 1
 
 	local Character = Player.Character
 
@@ -96,9 +99,15 @@ RunService.Stepped:Connect(function()
 		return
 	end
 
+	if _ENV.OnFarm == false then
+		PlayerTP:Stop()
+		return
+	end
+
 	local Character = Player.Character
 
 	if not Character then
+		PlayerTP:Stop()
 		return
 	end
 
@@ -137,43 +146,62 @@ function PlayerTP:Teleport(TargetCFrame)
 	end
 
 	ActiveTween = true
+	TweenId += 1
+
+	local CurrentTweenId = TweenId
 
 	task.spawn(function()
 		if Settings.NoClip then
 			ToggleNoClip(true)
 		end
 
-		local Magnitude = (RootPart.Position - TargetCFrame.Position).Magnitude
-		local TargetY = TargetCFrame.Position.Y + 3
+		local TargetPosition = TargetCFrame.Position
+		local TargetY = TargetPosition.Y + 3
 
-		while ActiveTween and Magnitude > 5 do
-			local CurrentPos = RootPart.Position
+		while ActiveTween and CurrentTweenId == TweenId do
+			if _ENV.OnFarm == false then
+				PlayerTP:Stop()
+				return
+			end
 
-			local Direction = (
-				Vector3.new(
-					TargetCFrame.Position.X,
-					TargetY,
-					TargetCFrame.Position.Z
-				) - CurrentPos
-			).Unit
+			local CurrentPosition = RootPart.Position
+			local Distance = (CurrentPosition - TargetPosition).Magnitude
 
-			local MoveStep = Direction * Settings.TweenSpeed * task.wait()
+			if Distance <= 5 then
+				break
+			end
+
+			local Direction = Vector3.new(TargetPosition.X, TargetY, TargetPosition.Z) - CurrentPosition
+
+			if Direction.Magnitude <= 0 then
+				break
+			end
+
+			local Delta = task.wait()
+
+			if not ActiveTween or CurrentTweenId ~= TweenId then
+				return
+			end
+
+			Direction = Direction.Unit
+
+			local MoveStep = Direction * Settings.TweenSpeed * Delta
+
+			if MoveStep.Magnitude > Distance then
+				MoveStep = Direction * Distance
+			end
 
 			RootPart.AssemblyLinearVelocity = Vector3.zero
-
-			RootPart.CFrame = CFrame.new(
-				CurrentPos + MoveStep,
-				TargetCFrame.Position
-			)
-
-			Magnitude = (RootPart.Position - TargetCFrame.Position).Magnitude
+			RootPart.CFrame = CFrame.new(CurrentPosition + MoveStep, TargetPosition)
 		end
 
-		if ActiveTween then
+		if ActiveTween and CurrentTweenId == TweenId and _ENV.OnFarm ~= false then
 			RootPart.CFrame = TargetCFrame
 		end
 
-		self:Stop()
+		if CurrentTweenId == TweenId then
+			PlayerTP:Stop()
+		end
 	end)
 
 	return true
