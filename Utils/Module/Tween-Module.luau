@@ -5,9 +5,6 @@ local PhysicsService = game:GetService("PhysicsService")
 local Player = Players.LocalPlayer
 local _ENV = (getgenv or getrenv or getfenv)()
 
-local PlayerTP = {}
-PlayerTP.__index = PlayerTP
-
 local ActiveTween = false
 local TweenId = 0
 
@@ -38,14 +35,13 @@ local function ToggleNoClip(State)
     for _, v in pairs(Character:GetDescendants()) do
         if v:IsA("BasePart") then
             pcall(function()
-                PhysicsService:SetPartCollisionGroup(
-                    v,
-                    State and COLLISION_GROUP or "Default"
-                )
+                PhysicsService:SetPartCollisionGroup(v, State and COLLISION_GROUP or "Default")
             end)
         end
     end
 end
+
+local PlayerTP = {}
 
 function PlayerTP:GetHover(RootPart)
     local BV = RootPart:FindFirstChild("KAHover")
@@ -97,41 +93,6 @@ function PlayerTP:Stop()
     ToggleNoClip(false)
 end
 
-RunService.Stepped:Connect(function()
-    if not ActiveTween then
-        return
-    end
-
-    if _ENV.OnFarm == false then
-        PlayerTP:Stop()
-        return
-    end
-
-    local Character = Player.Character
-
-    if not Character then
-        PlayerTP:Stop()
-        return
-    end
-
-    local Humanoid = Character:FindFirstChildOfClass("Humanoid")
-    local RootPart = Character:FindFirstChild("HumanoidRootPart")
-
-    if not Humanoid or not RootPart or Humanoid.Health <= 0 then
-        PlayerTP:Stop()
-        return
-    end
-
-    Humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
-
-    local Hover = PlayerTP:GetHover(RootPart)
-    Hover.Velocity = Vector3.zero
-
-    if Settings.NoClip then
-        ToggleNoClip(true)
-    end
-end)
-
 function PlayerTP:Teleport(TargetCFrame)
     self:Stop()
 
@@ -174,9 +135,7 @@ function PlayerTP:Teleport(TargetCFrame)
                 break
             end
 
-            local Direction =
-                Vector3.new(TargetPosition.X, TargetY, TargetPosition.Z)
-                - CurrentPosition
+            local Direction = Vector3.new(TargetPosition.X, TargetY, TargetPosition.Z) - CurrentPosition
 
             if Direction.Magnitude <= 0 then
                 break
@@ -190,22 +149,17 @@ function PlayerTP:Teleport(TargetCFrame)
 
             Direction = Direction.Unit
 
-            local MoveStep =
-                Direction * Settings.TweenSpeed * Delta
+            local MoveStep = Direction * Settings.TweenSpeed * Delta
 
             if MoveStep.Magnitude > Distance then
                 MoveStep = Direction * Distance
             end
 
             RootPart.AssemblyLinearVelocity = Vector3.zero
-            RootPart.CFrame =
-                CFrame.new(CurrentPosition + MoveStep, TargetPosition)
+            RootPart.CFrame = CFrame.new(CurrentPosition + MoveStep, TargetPosition)
         end
 
-        if ActiveTween
-            and CurrentTweenId == TweenId
-            and _ENV.OnFarm ~= false then
-
+        if ActiveTween and CurrentTweenId == TweenId and _ENV.OnFarm ~= false then
             RootPart.CFrame = TargetCFrame
         end
 
@@ -217,24 +171,49 @@ function PlayerTP:Teleport(TargetCFrame)
     return true
 end
 
-local function PlayerTPFunction(TargetCFrame)
-    return PlayerTP:Teleport(TargetCFrame)
-end
+RunService.Stepped:Connect(function()
+    if not ActiveTween then
+        return
+    end
 
-function PlayerTPFunction:Stop()
-    PlayerTP:Stop()
-end
+    if _ENV.OnFarm == false then
+        PlayerTP:Stop()
+        return
+    end
 
-function PlayerTPFunction:SetSpeed(Speed)
-    PlayerTP:SetSpeed(Speed)
-end
+    local Character = Player.Character
 
-function PlayerTPFunction:GetSpeed()
-    return PlayerTP:GetSpeed()
-end
+    if not Character then
+        PlayerTP:Stop()
+        return
+    end
 
-function PlayerTPFunction:IsTweening()
-    return PlayerTP:IsTweening()
-end
+    local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+    local RootPart = Character:FindFirstChild("HumanoidRootPart")
 
-return PlayerTPFunction
+    if not Humanoid or not RootPart or Humanoid.Health <= 0 then
+        PlayerTP:Stop()
+        return
+    end
+
+    Humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+
+    local Hover = PlayerTP:GetHover(RootPart)
+    Hover.Velocity = Vector3.zero
+
+    if Settings.NoClip then
+        ToggleNoClip(true)
+    end
+end)
+
+local Proxy = setmetatable({}, {
+    __call = function(_, TargetCFrame)
+        return PlayerTP:Teleport(TargetCFrame)
+    end,
+
+    __index = function(_, Key)
+        return PlayerTP[Key]
+    end
+})
+
+return Proxy
