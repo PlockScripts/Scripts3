@@ -12,6 +12,7 @@ local _ENV = (getgenv or getrenv or getfenv)()
 
 local ActiveTween = false
 local TweenId = 0
+local CurrentTarget = nil
 
 local Settings = {
     TweenSpeed = 300,
@@ -43,11 +44,15 @@ local function GetVehicleSeat(Character)
         return Seat
     end
 
-    for _, Boat in pairs(workspace.Boats:GetChildren()) do
-        local VehicleSeat = Boat:FindFirstChildWhichIsA("VehicleSeat", true)
+    local Boats = workspace:FindFirstChild("Boats")
 
-        if VehicleSeat and VehicleSeat.Occupant == Humanoid then
-            return VehicleSeat
+    if Boats then
+        for _, Boat in pairs(Boats:GetChildren()) do
+            local VehicleSeat = Boat:FindFirstChildWhichIsA("VehicleSeat", true)
+
+            if VehicleSeat and VehicleSeat.Occupant == Humanoid then
+                return VehicleSeat
+            end
         end
     end
 
@@ -102,6 +107,7 @@ end
 function PlayerTP:Stop()
     ActiveTween = false
     TweenId += 1
+    CurrentTarget = nil
 
     local Character = Player.Character
 
@@ -123,13 +129,23 @@ function PlayerTP:Stop()
 end
 
 function PlayerTP:Teleport(TargetCFrame)
+    if not TargetCFrame then
+        return false
+    end
+
+    if ActiveTween and CurrentTarget then
+        if (CurrentTarget.Position - TargetCFrame.Position).Magnitude <= 15 then
+            return true
+        end
+    end
+
     self:Stop()
 
     local Character = GetCharacter()
     local Humanoid = Character:FindFirstChildOfClass("Humanoid")
     local RootPart = Character:FindFirstChild("HumanoidRootPart")
 
-    if not Humanoid or Humanoid.Health <= 0 then
+    if not Humanoid or Humanoid.Health <= 0 or not RootPart then
         return false
     end
 
@@ -147,6 +163,7 @@ function PlayerTP:Teleport(TargetCFrame)
     TweenId += 1
 
     local CurrentTweenId = TweenId
+    CurrentTarget = TargetCFrame
 
     task.spawn(function()
         if Settings.NoClip then
@@ -174,7 +191,11 @@ function PlayerTP:Teleport(TargetCFrame)
                 break
             end
 
-            local Direction = Vector3.new(TargetPosition.X, TargetY, TargetPosition.Z) - CurrentPosition
+            local Direction = Vector3.new(
+                TargetPosition.X,
+                TargetY,
+                TargetPosition.Z
+            ) - CurrentPosition
 
             if Direction.Magnitude <= 0 then
                 break
@@ -195,10 +216,18 @@ function PlayerTP:Teleport(TargetCFrame)
             end
 
             DriveTarget.AssemblyLinearVelocity = Vector3.zero
-            DriveTarget.CFrame = CFrame.new(CurrentPosition + MoveStep, TargetPosition)
+
+            DriveTarget.CFrame = CFrame.new(
+                CurrentPosition + MoveStep,
+                TargetPosition
+            )
         end
 
-        if ActiveTween and CurrentTweenId == TweenId and _ENV.OnFarm ~= false and DriveTarget and DriveTarget.Parent then
+        if ActiveTween
+        and CurrentTweenId == TweenId
+        and _ENV.OnFarm ~= false
+        and DriveTarget
+        and DriveTarget.Parent then
             DriveTarget.CFrame = TargetCFrame
         end
 
