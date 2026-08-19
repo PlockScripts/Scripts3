@@ -1,3 +1,8 @@
+--[[
+     This Open Source was made for the purpose of use in the redz Hub script 
+     The script below was developed by plock4444 & Team of the new redz Hub 
+ ]]
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local PhysicsService = game:GetService("PhysicsService")
@@ -23,6 +28,30 @@ local function GetCharacter()
     Player.Character:WaitForChild("HumanoidRootPart")
 
     return Player.Character
+end
+
+local function GetVehicleSeat(Character)
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+
+    if not Humanoid or not Humanoid.Sit then
+        return nil
+    end
+
+    local Seat = Humanoid.SeatPart
+
+    if Seat and Seat:IsA("VehicleSeat") then
+        return Seat
+    end
+
+    for _, Boat in pairs(workspace.Boats:GetChildren()) do
+        local VehicleSeat = Boat:FindFirstChildWhichIsA("VehicleSeat", true)
+
+        if VehicleSeat and VehicleSeat.Occupant == Humanoid then
+            return VehicleSeat
+        end
+    end
+
+    return nil
 end
 
 local function ToggleNoClip(State)
@@ -104,7 +133,12 @@ function PlayerTP:Teleport(TargetCFrame)
         return false
     end
 
-    if Humanoid.Sit then
+    local DriveTarget = RootPart
+    local VehicleSeat = GetVehicleSeat(Character)
+
+    if Humanoid.Sit and VehicleSeat then
+        DriveTarget = VehicleSeat
+    elseif Humanoid.Sit then
         Humanoid.Sit = false
         return false
     end
@@ -128,7 +162,12 @@ function PlayerTP:Teleport(TargetCFrame)
                 return
             end
 
-            local CurrentPosition = RootPart.Position
+            if not DriveTarget or not DriveTarget.Parent then
+                PlayerTP:Stop()
+                return
+            end
+
+            local CurrentPosition = DriveTarget.Position
             local Distance = (CurrentPosition - TargetPosition).Magnitude
 
             if Distance <= 5 then
@@ -155,12 +194,12 @@ function PlayerTP:Teleport(TargetCFrame)
                 MoveStep = Direction * Distance
             end
 
-            RootPart.AssemblyLinearVelocity = Vector3.zero
-            RootPart.CFrame = CFrame.new(CurrentPosition + MoveStep, TargetPosition)
+            DriveTarget.AssemblyLinearVelocity = Vector3.zero
+            DriveTarget.CFrame = CFrame.new(CurrentPosition + MoveStep, TargetPosition)
         end
 
-        if ActiveTween and CurrentTweenId == TweenId and _ENV.OnFarm ~= false then
-            RootPart.CFrame = TargetCFrame
+        if ActiveTween and CurrentTweenId == TweenId and _ENV.OnFarm ~= false and DriveTarget and DriveTarget.Parent then
+            DriveTarget.CFrame = TargetCFrame
         end
 
         if CurrentTweenId == TweenId then
@@ -196,10 +235,12 @@ RunService.Stepped:Connect(function()
         return
     end
 
-    Humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+    if not Humanoid.Sit then
+        Humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
 
-    local Hover = PlayerTP:GetHover(RootPart)
-    Hover.Velocity = Vector3.zero
+        local Hover = PlayerTP:GetHover(RootPart)
+        Hover.Velocity = Vector3.zero
+    end
 
     if Settings.NoClip then
         ToggleNoClip(true)
