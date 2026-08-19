@@ -38,7 +38,10 @@ local function ToggleNoClip(State)
     for _, v in pairs(Character:GetDescendants()) do
         if v:IsA("BasePart") then
             pcall(function()
-                PhysicsService:SetPartCollisionGroup(v, State and COLLISION_GROUP or "Default")
+                PhysicsService:SetPartCollisionGroup(
+                    v,
+                    State and COLLISION_GROUP or "Default"
+                )
             end)
         end
     end
@@ -171,11 +174,9 @@ function PlayerTP:Teleport(TargetCFrame)
                 break
             end
 
-            local Direction = Vector3.new(
-                TargetPosition.X,
-                TargetY,
-                TargetPosition.Z
-            ) - CurrentPosition
+            local Direction =
+                Vector3.new(TargetPosition.X, TargetY, TargetPosition.Z)
+                - CurrentPosition
 
             if Direction.Magnitude <= 0 then
                 break
@@ -189,22 +190,22 @@ function PlayerTP:Teleport(TargetCFrame)
 
             Direction = Direction.Unit
 
-            local MoveStep = Direction * Settings.TweenSpeed * Delta
+            local MoveStep =
+                Direction * Settings.TweenSpeed * Delta
 
             if MoveStep.Magnitude > Distance then
                 MoveStep = Direction * Distance
             end
 
             RootPart.AssemblyLinearVelocity = Vector3.zero
-            RootPart.CFrame = CFrame.new(
-                CurrentPosition + MoveStep,
-                TargetPosition
-            )
+            RootPart.CFrame =
+                CFrame.new(CurrentPosition + MoveStep, TargetPosition)
         end
 
         if ActiveTween
             and CurrentTweenId == TweenId
             and _ENV.OnFarm ~= false then
+
             RootPart.CFrame = TargetCFrame
         end
 
@@ -220,22 +221,20 @@ local function PlayerTPFunction(TargetCFrame)
     return PlayerTP:Teleport(TargetCFrame)
 end
 
-PlayerTPFunction.Stop = function()
+function PlayerTPFunction:Stop()
     PlayerTP:Stop()
 end
 
-PlayerTPFunction.SetSpeed = function(_, Speed)
+function PlayerTPFunction:SetSpeed(Speed)
     PlayerTP:SetSpeed(Speed)
 end
 
-PlayerTPFunction.GetSpeed = function()
+function PlayerTPFunction:GetSpeed()
     return PlayerTP:GetSpeed()
 end
 
-PlayerTPFunction.IsTweening = function()
+function PlayerTPFunction:IsTweening()
     return PlayerTP:IsTweening()
 end
 
-return setmetatable(PlayerTPFunction, {
-    __index = PlayerTP
-})
+return PlayerTPFunction
